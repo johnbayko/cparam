@@ -246,54 +246,55 @@ static void print_usage(const char * cmd_name) {
 
 int main(const int argc, const char * const argv[]) {
     for (int argi = 1;argi < argc;argi++) {
+        char err_msg[256];
+        bool cparam_process_success = false;
+
         if ( (0 == strcmp("-t", argv[argi]))
           || (0 == strcmp("--tempmon", argv[argi]))
         ) {
-            char err_msg[256];
             argi++;
-            if ( cparam_process(
+            cparam_process_success = 
+                cparam_process(
                     argc, argv, &argi, &tempmon_param, err_msg, sizeof(err_msg)
-                )
-            ) {
-                struct cparam_info *param = &tempmon_param;
-                while (NULL != param)
-                {
-                    switch (param->type)
-                    {
-                    case CPARAM_STRING:
-                        printf("string: \"%s\"\n", param->str_val);
-                        break;
-                    case CPARAM_INT:
-                        printf("int: \"%s\" = %d\n",
-                            param->str_val, param->int_val
-                        );
-                        break;
-                    case CPARAM_KEYWORD:
-                        printf("keyword: \"%s\" = %d [%d]\n",
-                            param->str_val,
-                            param->int_val,
-                            param->key_idx
-                        );
-                        break;
-                    case CPARAM_ACTION:
-                        printf("action: \n");
-                        break;
-                    }
-                    param = cparam_next(param);
-                }
-            }
-            else
-            {
-                printf("Incorrect --tempmon parameters: %s\n", err_msg);
-                print_usage(argv[0]);
-                exit(EXIT_FAILURE);
-            }
-        } else if ( (0 == strcmp("-?", argv[argi]))
-          || (0 == strcmp("--help", argv[argi]))
+                );
+        } else if ( (0 == strcmp("-s", argv[argi]))
+          || (0 == strcmp("--stringtest", argv[argi]))
         ) {
             print_usage(argv[0]);
         } else {
             printf("Unrecognized option: %s\n\n", argv[argi]);
+            print_usage(argv[0]);
+            exit(EXIT_FAILURE);
+        }
+        if (cparam_process_success) {
+            struct cparam_info *param = &tempmon_param;
+            while (NULL != param)
+            {
+                switch (param->type)
+                {
+                case CPARAM_STRING:
+                    printf("string: \"%s\"\n", param->str_val);
+                    break;
+                case CPARAM_INT:
+                    printf("int: \"%s\" = %d\n",
+                        param->str_val, param->int_val
+                    );
+                    break;
+                case CPARAM_KEYWORD:
+                    printf("keyword: \"%s\" = %d [%d]\n",
+                        param->str_val,
+                        param->int_val,
+                        param->key_idx
+                    );
+                    break;
+                case CPARAM_ACTION:
+                    printf("action: \n");
+                    break;
+                }
+                param = cparam_next(param);
+            }
+        } else {
+            printf("Incorrect --tempmon parameters: %s\n", err_msg);
             print_usage(argv[0]);
             exit(EXIT_FAILURE);
         }

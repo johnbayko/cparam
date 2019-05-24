@@ -426,7 +426,7 @@ has these targets:
     lib: Makes libcparam.so
 
     demo: Makes a static libcparam.a and a file called cparam_demo (from
-	cparam_demo.c). The demo implements the command line arguments in the
+        cparam_demo.c). The demo implements the command line arguments in the
         examples in this document.
 
     clean: Remove anything that might have been built.
