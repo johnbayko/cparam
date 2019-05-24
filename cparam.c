@@ -100,9 +100,9 @@ cparam_process_arg(
             const int key_lim = param->key_lim;
             const struct cparam_keyword_info * matching_key = NULL;
 
-		// Partial matches okay if unique. Count number of matches, if
-		// one then found the keyword.
-		int num_matches = 0;
+            // Partial matches okay if unique. Count number of matches, if
+            // one then found the keyword.
+            int num_matches = 0;
             for (key_idx = 0;key_idx < key_lim;key_idx++)
             {
                 const struct cparam_keyword_info * const current_key =
@@ -114,7 +114,7 @@ cparam_process_arg(
                         strlen(argv[argv_current])
                     )
                 ) {
-			num_matches++;
+                    num_matches++;
                     matching_key = current_key;
                     break;
                 }
@@ -126,9 +126,9 @@ cparam_process_arg(
                     snprintf(err_msg, err_msg_size,
                         "Keyword \"%s\" %s.",
                         argv[argv_current],
-			    (0 == num_matches)
-			        ? "is not in the keyword list"
-			        : "matches too many keywords"
+                        (0 == num_matches)
+                            ? "is not in the keyword list"
+                            : "matches too many keywords"
                     );
                 }
                 return false;
