@@ -1,0 +1,444 @@
+Complex parameter parser
+
+This is for parsing parameters more complicated than a toggle of single
+parameter option. For example, imagine a command controlling a temperature
+monitoring system with the following options:
+
+    --tempmon on/off
+    --tempmon fan [maxtemp] [units]
+    --tempmon heater [mintemp] [units]
+    --tempmon range [mintemp] [maxtemp] [units]
+    --tempmon alarm low/medium/high
+
+This allows you to construct a C struct that describes the syntax of the values
+the temperature parameter can have, and will parse the command line arguments,
+putting the parsed values into the C struct so the program can read them as
+needed. It allows actions to be defined for each parameter list. It also
+prints formatted help, and has reasonable error diagnostic messages.
+
+This doesn't replace getopt(3) or other parameter processors, it's meant to
+process parameters once the option has been identified. For example, using
+getopt(3) would look like this:
+
+    for (;;) {
+        const int opt = getopt(argc, argv, "...")
+        if (-1 == opt) {
+            break;
+        }
+        switch (opt) {
+        ...
+        case 't':
+            bflag = 1;
+            if ( cparam_process(
+                    argc, argv,
+                    &optind,  // Part of getopt, where next option starts.
+                    cparse_info_for_t,
+                    err_msg, err_lim
+                )
+            ) {
+                ... do t param stuff ...
+            } else {
+                ... t param error message print ...
+            }
+        ...
+        }
+    }
+
+
+----
+cparam.h
+----
+Header file "cparam.h" defines the parameter information structur and several
+macros to define each parameter item.
+
+Programs should be linked with "-lcparam" for either shared libcparam.so or
+static libcparam.a libraries. See the Makefile "demo" target.
+
+
+----
+struct cparam_info
+struct cparam_keyword_info
+PARAM_INFO_KEYWORD(name, desc, key_list)
+----
+The root of the structure is a struct cparam_info.
+
+Unless the parameter is a simple int or string, it will be a keyword which
+determines what the rest of the parameters are. Keywords are specified in a
+cparam_keyword_info array. For the --tempmon example above, the keywords will
+be: 
+
+    on
+    off
+    fan
+    heater
+    range
+    alarm
+
+struct cprarm_keyword_info has these fields:
+
+    name: The string specified on the command line.
+    val: An integer value for each name.
+    next_param: The cparam_info struct for the parameter that follows this.
+
+The PARAM_INFO_KEYWORD macro takes these parameters:
+
+    name: The name, for printing help.
+    desc: Description, for printing help.
+    key_list: A struct cparam_keyword_info array of keywords.
+    next: The cparam_info struct for the parameter that follows this.
+
+Both cparam_keyword_info and cparam_info have a "next" field. If both are null
+then no further parameters are processed. If both have a value, then the
+cparam_keyword_info next pointer is followed. That can be used to specify a
+different parameter list for some keywords, but a default for the rest.
+
+Partial matches are accepted as long as they are unique, so "f" would match
+"fan", but "o" would match both "on" and "off", so another character would be
+needed. The parameter type will be recorded as a keyword, and the value as an
+integer. A list for the keywords above would look like this:
+
+    enum tempmon_enum {
+      TEMPMON_ON,
+      TEMPMON_OFF,
+      TEMPMON_FAN,
+      TEMPMON_HEATER,
+      TEMPMON_RANGE,
+      TEMPMON_ALARM,
+    };
+    struct cparam_keyword_info tempmon_list[] = {
+        {"on", TEMPMON_ON, NULL},
+        {"off", TEMPMON_OFF, NULL},
+        {"fan", TEMPMON_FAN, &tempmon_fan_param},
+        {"heater", TEMPMON_HEATER, &tempmon_heater_param},
+        {"range", TEMPMON_RANGE, &tempmon_range_param},
+        {"alarm", TEMPMON_ALARM, &tempmon_alarm_param},
+    };
+    struct cparam_info tempmon_param =
+        CPARAM_INFO_KEYWORD(
+            "oper", "Temperature monitor operation.", tempmon_list, NULL
+        );
+
+There are "next" values for those keywords with additional parameters, NULL for
+the rest.
+
+
+----
+CPARAM_INFO_INT(name, desc, next)
+CPARAM_INFO_INT_RANGE(name, desc, min, max, next)
+----
+An integer or integer range can be specified by the CPARAM_INFO_INT and
+CPARAM_INFO_INT_RANGE macros.
+
+In the temperature control example, if the temperature sensor has a limited
+range where the reading is valid, temperature ranges can be specified this way.
+
+    struct cparam_info tempmon_fan_param =
+        CPARAM_INFO_INT_RANGE(
+            "temp",
+            "High temperature to activate.",
+            TEMPERATURE_READING_MIN_C,
+            TEMPERATURE_READING_MAX_C,
+            NULL
+        );
+    struct cparam_keyword_info tempmon_list[] = {
+        ...
+        {"fan", TEMPMON_FAN, &tempmon_fan_param},
+        ...
+    };
+
+If the temperature can be specified in other units (celcius, farenheit,
+kelvin), then the range can't be determined until after arguments are parsed,
+and the command is processed, so an unranged integer would be used.
+
+The units would be an additional keword added to the "next" field of the
+cparam_info struct for that parameter:
+
+    enum tempmon_units {
+        TEMPMON_KELVIN,
+        TEMPMON_CELCIUS,
+        TEMPMON_FARENHEIT,
+    };
+    struct cparam_keyword_info tempmon_units_list[] = {
+        {"kelvin", TEMPMON_KELVIN, NULL},
+        {"celcius", TEMPMON_CELCIUS, NULL},
+        {"farenheit", TEMPMON_FARENHEIT, NULL},
+    };
+    struct cparam_info tempmon_units_param =
+        CPARAM_INFO_KEYWORD(
+            "units", "Temperature units.", tempmon_units_list, NULL
+        );
+    struct cparam_info tempmon_fan_param =
+        CPARAM_INFO_INT(
+            "temp",
+            "High temperature to activate.",
+            &tempmon_units_param
+        );
+    struct cparam_keyword_info tempmon_list[] = {
+        ...
+        {"fan", TEMPMON_FAN, &tempmon_fan_param},
+        ...
+    };
+
+Partial matches are accepted, so "k", "c", and "f" could be used rather than
+the full names.
+
+
+----
+CPARAM_INFO_STRING(name, desc, next)
+----
+When the parameter is otherwise unstructured, it can be specified as just a
+string using the CPARAM_INFO_STRING macro.
+
+
+----
+CPARAM_INFO_LAST_KEYWORD(name, desc, key_list, action, data)
+CPARAM_INFO_LAST_INT(name, desc, action, data)
+CPARAM_INFO_LAST_INT_RANGE(name, desc, min, max, action, data)
+CPARAM_INFO_LAST_STRING(name, desc, action, data)
+CPARAM_INFO_ACTION(action, data)
+----
+An action function can be specified for any parameter. The action function type
+is:
+
+    typedef bool (*cparam_action)(
+        struct cparam_info * param,
+        void * data,    // May be NULL.
+        char * err_msg, // May be NULL.
+        size_t err_len
+    );
+
+The "param" value is the root of the parse tree, which can be traversed to read
+the parsed parameters to this point (see below). The "data" parameter is a
+pointer to a user defined data, or NULL if none was specified. The "err_msg"
+and "err_len" parameters are used for returning an error message if the
+function returns false.
+
+The action funciton is expected to be the last parameter, called when all other
+paraemter values have been parsed, so the macros CPARAM_INFO_LAST_KEYWORD,
+CPARAM_INFO_LAST_INT, CPARAM_INFO_LAST_INT_RANGE, and CPARAM_INFO_LAST_STRING
+replace the "next" parameter with "action" and "data" parameters.
+
+The CPARAM_INFO_ACTION macro inserts a dummy parameter with an action funciton,
+but which does not parse an argument. This can be used when some keywords have
+no further parameters, but you'd like to add an action to them, such as the
+"on" and "off" parameters in the example above:
+
+    static bool action_on(
+        struct cparam_info * param,
+        void * data,
+        char * err_msg,
+        size_t err_len
+    ) {
+        ...
+        return true;
+    }
+    struct cparam_info tempmon_on_param =
+        CPARAM_INFO_ACTION(
+            action_on, NULL
+        );
+    struct cparam_keyword_info tempmon_list[] = {
+        {"on", TEMPMON_ON, &tempmon_on_param},
+        ...
+    };
+
+It's possible (if you really want to) to specify both an action and a next
+value by manually constructing a cparam_info struct with additional parameters.
+Parsing to the next parameter will continue if the action function returns
+true, but will stop (with an unclear error message) if it returns false. An
+example of this would look like:
+
+    static bool action_fan(
+        struct cparam_info * param,
+        void * data,    // May be NULL.
+        char * err_msg, // May be NULL.
+        size_t err_len
+    ) {
+        ... stuff ...
+        return true;
+    }
+    struct cparam_info tempmon_fan_param =
+        {
+            .type=CPARAM_INT,
+            .has_range=false,
+            .next_param=&tempmon_units_param,
+            .action=action_fan,
+            .name="temp",
+            .desc="High temperature to activate."
+        };
+
+
+----
+bool cparam_process(
+    const int argc,
+    const char * const argv[],
+    int * argv_idx,  // argv position to start, updated to last one parsed.
+    struct cparam_info * const start_param,
+    char * const err_msg,
+    size_t err_msg_size
+);
+----
+The parameters are actually matched up to the cparam_info struct by calling
+cparam_process(). On success it returns true and sets argv_idx to the next
+argument to process. On failure it returns false, and sets argv_idx to the
+index of the argument that was being processed when the failure occurred, so an
+error message can be printed like:
+
+    if (cparam_process(argc, argv, &argi, &pi, err_msg, sizeof(er_msg))) {
+        ...
+    } else {
+        printf("Error: %s: %s\n", argv[argi], err_msg);
+        print_usage(argc, argv);
+        exit(EXIT_FAILURE);
+    }
+
+
+----
+struct cparam_info * cparam_next(struct cparam_info * const param);
+param.str_val
+param.int_val
+----
+The cparam_next() function returns the next parameter parsed, or NULL if there
+are no more. It can be called on the root cparam_info struct after calling
+cparam_process(), or it can be used inside the action functions. It follows the
+proper path for any given keywords. A generic loop to print the parsed
+parameters looks like this:
+
+    struct cparam_info *param = &root_param;
+    while (NULL != param)
+    {
+        switch (param->type)
+        {
+        case CPARAM_STRING:
+            printf("string: \"%s\"\n", param->str_val);
+            break;
+        case CPARAM_INT:
+            printf("int: \"%s\" = %d\n",
+                param->str_val, param->int_val
+            );
+            break;
+        case CPARAM_KEYWORD:
+            printf("keyword: \"%s\" = %d [%d]\n",
+                param->str_val,
+                param->int_val,
+                param->key_idx
+            );
+            break;
+        case CPARAM_ACTION:
+            printf("action: \n");
+            break;
+        }
+        param = cparam_next(param);
+    }
+
+Within an action funciton, you know what parameters have been specified to get
+to that point, so it's generally straightforward to get the values. A
+temperature range action might look like this:
+
+    static bool action_range(
+        struct cparam_info * param,
+        void * data,
+        char * err_msg,
+        size_t err_len
+    ) {
+        struct cparam_info *scan_param = param;
+        // Skip first param (was "range").
+
+        scan_param = cparam_next(scan_param);
+        const int min_temp = scan_param->int_val;
+
+        scan_param = cparam_next(scan_param);
+        const int max_temp = scan_param->int_val;
+
+        scan_param = cparam_next(scan_param);
+        const char * const units_name = scan_param->str_val;
+        const enum tempmon_units units = scan_param->int_val;
+
+        if (set_range(min_temp, max_temp, units)) {
+            return true;
+        } else {
+            snprintf(err_msg, err_msg_size,
+                "Could not set temperature alarm range to %d - %d %s.",
+                min_temp, max_temp, units_name
+            );
+            return false;
+        }
+    }
+
+
+----
+void cparam_print_names(const struct cparam_info * const start_param);
+void cparam_print(const struct cparam_info * const start_param);
+----
+Once the paremeter structure has been defined, it can automatically format a
+help message for you. This is what I like most about this, it ensures that the
+help will always match what is parsed. It's annoying to try to keep parsing and
+help synchronised, and even more annoying when they are not.
+
+The function cparam_print_names() lists the parameters that will be looked for
+(with no newline). The funciton cparam_print() then prints a detailed
+description of the parameter types and usage. Used together a print usage
+function might look like this:
+
+    printf("%s <option>\n", cmd_name);
+    printf("Where <option> is:\n");
+
+    printf("  [-t | --tempmon] ");
+    cparam_print_param_names(&tempmon_param);
+    printf("\n");
+    cparam_print(&tempmon_param);
+
+    printf("  [-? | --help]: Print this message.\n");
+
+The output would look like this:
+
+    mon_ctl <option>
+    Where <option> is:
+      [-t | --tempmon] <oper> 
+        <oper>: Temperature monitor operation. One of: 
+          on 
+          off 
+          fan <temp:integer> <units> 
+            <temp>: High temperature to activate.
+            <units>: Temperature units. One of:
+              kelvin celcius farenheit 
+          heater <temp:integer> <units> 
+            <temp>: Low temperature to activate.
+            <units>: Temperature units. One of:
+              kelvin celcius farenheit 
+          range <temp:integer> <temp:integer> <units> 
+            <temp>: Minimum temperature to trigger alarm.
+            <temp>: Maximum temperature to trigger alarm.
+            <units>: Temperature units. One of:
+              kelvin celcius farenheit 
+          alarm <level> 
+            <level>: Alarm level when temperature exceeds range. One of:
+              low medium high 
+
+      [-? | --help]: Print this message.
+
+
+----
+Makefile
+----
+There is a Makefile for MacOS. In additional to the individual file targets, it
+has these targets:
+
+    lib: Makes libcparam.so
+
+    demo: Makes a static libcparam.a and a file called cparam_demo (from
+	cparam_demo.c). The demo implements the command line arguments in the
+        examples in this document.
+
+    clean: Remove anything that might have been built.
+
+There's no install: or all: targets. Might be useful to include the static
+llist library in the lib: targets, since it's absolutely tiny at only about 6K
+so you save almost nothing by making it a dynamic library.
+
+
+----
+To do:
+----
+    - Internationalisation.
+    - Can this be used for interactive input?
+
