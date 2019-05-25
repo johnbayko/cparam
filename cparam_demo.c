@@ -353,7 +353,7 @@ static void print_usage(const char * cmd_name) {
     cparam_print(&percent_param);
     printf("\n");
 
-    printf("  [-p | --string] ");
+    printf("  [-s | --string] ");
     cparam_print_param_names(&string_param);
     printf("\n");
     cparam_print(&string_param);

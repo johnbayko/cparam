@@ -1,6 +1,6 @@
 Complex parameter parser
 
-This is for parsing parameters more complicated than a toggle of single
+This is for parsing parameters more complicated than a toggle or single
 parameter option. For example, imagine a command controlling a temperature
 monitoring system with the following options:
 
@@ -44,11 +44,15 @@ getopt(3) would look like this:
         }
     }
 
+It's possible to specify options as keywords beginning with "-" and "--", but
+the resulting help message would have duplicates for the short/long options,
+and it would not have option descriptions.
+
 
 ----
 cparam.h
 ----
-Header file "cparam.h" defines the parameter information structur and several
+Header file "cparam.h" defines the parameter information structure and several
 macros to define each parameter item.
 
 Programs should be linked with "-lcparam" for either shared libcparam.so or
@@ -58,7 +62,7 @@ static libcparam.a libraries. See the Makefile "demo" target.
 ----
 struct cparam_info
 struct cparam_keyword_info
-PARAM_INFO_KEYWORD(name, desc, key_list)
+CPARAM_INFO_KEYWORD(name, desc, key_list)
 ----
 The root of the structure is a struct cparam_info.
 
@@ -80,7 +84,7 @@ struct cprarm_keyword_info has these fields:
     val: An integer value for each name.
     next_param: The cparam_info struct for the parameter that follows this.
 
-The PARAM_INFO_KEYWORD macro takes these parameters:
+The CPARAM_INFO_KEYWORD macro takes these parameters:
 
     name: The name, for printing help.
     desc: Description, for printing help.
@@ -150,7 +154,7 @@ If the temperature can be specified in other units (celcius, farenheit,
 kelvin), then the range can't be determined until after arguments are parsed,
 and the command is processed, so an unranged integer would be used.
 
-The units would be an additional keword added to the "next" field of the
+The units would be an additional keyword added to the "next" field of the
 cparam_info struct for that parameter:
 
     enum tempmon_units {
@@ -294,8 +298,8 @@ error message can be printed like:
 
 ----
 struct cparam_info * cparam_next(struct cparam_info * const param);
-param.str_val
-param.int_val
+param->str_val
+param->int_val
 ----
 The cparam_next() function returns the next parameter parsed, or NULL if there
 are no more. It can be called on the root cparam_info struct after calling
