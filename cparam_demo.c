@@ -4,6 +4,8 @@
 
 #include "cparam.h"
 
+// Stuff for --tempmon option.
+
 enum tempmon_units {
     TEMPMON_KELVIN,
     TEMPMON_CELCIUS,
@@ -232,6 +234,98 @@ struct cparam_info tempmon_param =
     );
 
 
+// Stuff for --int option.
+
+static bool action_int(
+    struct cparam_info * param,
+    void * data,
+    char * err_msg,
+    size_t err_len
+) {
+    struct cparam_info *scan_param = param;
+    const int i = scan_param->int_val;
+
+    printf("Int action for: %d.\n", i);
+    return true;
+}
+
+struct cparam_info int_param =
+    CPARAM_INFO_LAST_INT(
+        "int", "Integer to test.", action_int, NULL
+    );
+
+
+// Stuff for --intint option.
+
+static bool action_intint(
+    struct cparam_info * param,
+    void * data,
+    char * err_msg,
+    size_t err_len
+) {
+    struct cparam_info *scan_param = param;
+    const int i1 = scan_param->int_val;
+
+    scan_param = cparam_next(scan_param);
+    const int i2 = scan_param->int_val;
+
+    printf("Intint action for: %d %d.\n", i1, i2);
+    return true;
+}
+
+struct cparam_info intint_second_param =
+    CPARAM_INFO_LAST_INT(
+        "int2", "Second integer to test.", action_intint, NULL
+    );
+
+struct cparam_info intint_first_param =
+    CPARAM_INFO_INT(
+        "int1", "First integer to test.", &intint_second_param
+    );
+
+
+// Stuff for --percent option.
+
+static bool action_percent(
+    struct cparam_info * param,
+    void * data,
+    char * err_msg,
+    size_t err_len
+) {
+    struct cparam_info *scan_param = param;
+    const int percent = scan_param->int_val;
+
+    printf("Percent action for: %d.\n", percent);
+    return true;
+}
+
+struct cparam_info percent_param =
+    CPARAM_INFO_LAST_INT_RANGE(
+        "percent", "Percent to test.", 0, 100, action_percent, NULL
+    );
+
+
+// Stuff for --string option.
+
+static bool action_string(
+    struct cparam_info * param,
+    void * data,
+    char * err_msg,
+    size_t err_len
+) {
+    struct cparam_info *scan_param = param;
+    const char * s = scan_param->str_val;
+
+    printf("String action for: %s.\n", s);
+    return true;
+}
+
+struct cparam_info string_param =
+    CPARAM_INFO_LAST_STRING(
+        "string", "String to test.", action_string, NULL
+    );
+
+
 static void print_usage(const char * cmd_name) {
     printf("%s <options> [<options> ...]\n", cmd_name);
     printf("Where <options> are:\n");
@@ -241,62 +335,129 @@ static void print_usage(const char * cmd_name) {
     printf("\n");
     cparam_print(&tempmon_param);
 
+    printf("  [-i | --int] ");
+    cparam_print_param_names(&int_param);
+    printf("\n");
+    cparam_print(&int_param);
+    printf("\n");
+
+    printf("  [-I | --intint] ");
+    cparam_print_param_names(&intint_first_param);
+    printf("\n");
+    cparam_print(&intint_first_param);
+    printf("\n");
+
+    printf("  [-p | --percent] ");
+    cparam_print_param_names(&percent_param);
+    printf("\n");
+    cparam_print(&percent_param);
+    printf("\n");
+
+    printf("  [-p | --string] ");
+    cparam_print_param_names(&string_param);
+    printf("\n");
+    cparam_print(&string_param);
+    printf("\n");
+
     printf("  [-? | --help]: Print this message.\n");
 }
 
 int main(const int argc, const char * const argv[]) {
     for (int argi = 1;argi < argc;argi++) {
+        const char * const opt = argv[argi];
+        struct cparam_info *param = NULL;
         char err_msg[256];
         bool cparam_process_success = false;
 
-        if ( (0 == strcmp("-t", argv[argi]))
-          || (0 == strcmp("--tempmon", argv[argi]))
+        if ( (0 == strcmp("-t", opt))
+          || (0 == strcmp("--tempmon", opt))
         ) {
+            param = &tempmon_param;
             argi++;
             cparam_process_success = 
                 cparam_process(
                     argc, argv, &argi, &tempmon_param, err_msg, sizeof(err_msg)
                 );
-        } else if ( (0 == strcmp("-s", argv[argi]))
-          || (0 == strcmp("--stringtest", argv[argi]))
+        } else if ( (0 == strcmp("-i", opt))
+          || (0 == strcmp("--int", opt))
+        ) {
+            param = &int_param;
+            argi++;
+            cparam_process_success = 
+                cparam_process(
+                    argc, argv, &argi, &int_param, err_msg, sizeof(err_msg)
+                );
+        } else if ( (0 == strcmp("-I", opt))
+          || (0 == strcmp("--intint", opt))
+        ) {
+            param = &intint_first_param;
+            argi++;
+            cparam_process_success = 
+                cparam_process(
+                    argc, argv, &argi,
+                    &intint_first_param,
+                    err_msg, sizeof(err_msg)
+                );
+        } else if ( (0 == strcmp("-p", opt))
+          || (0 == strcmp("--percent", opt))
+        ) {
+            param = &percent_param;
+            argi++;
+            cparam_process_success = 
+                cparam_process(
+                    argc, argv, &argi, &percent_param, err_msg, sizeof(err_msg)
+                );
+        } else if ( (0 == strcmp("-s", opt))
+          || (0 == strcmp("--string", opt))
+        ) {
+            param = &string_param;
+            argi++;
+            cparam_process_success = 
+                cparam_process(
+                    argc, argv, &argi, &string_param, err_msg, sizeof(err_msg)
+                );
+        } else if ( (0 == strcmp("-?", opt))
+          || (0 == strcmp("--help", opt))
         ) {
             print_usage(argv[0]);
         } else {
-            printf("Unrecognized option: %s\n\n", argv[argi]);
+            printf("Unrecognized option: %s\n\n", opt);
             print_usage(argv[0]);
             exit(EXIT_FAILURE);
         }
-        if (cparam_process_success) {
-            struct cparam_info *param = &tempmon_param;
-            while (NULL != param)
-            {
-                switch (param->type)
+
+        if (NULL != param) {
+            if (cparam_process_success) {
+                while (NULL != param)
                 {
-                case CPARAM_STRING:
-                    printf("string: \"%s\"\n", param->str_val);
-                    break;
-                case CPARAM_INT:
-                    printf("int: \"%s\" = %d\n",
-                        param->str_val, param->int_val
-                    );
-                    break;
-                case CPARAM_KEYWORD:
-                    printf("keyword: \"%s\" = %d [%d]\n",
-                        param->str_val,
-                        param->int_val,
-                        param->key_idx
-                    );
-                    break;
-                case CPARAM_ACTION:
-                    printf("action: \n");
-                    break;
+                    switch (param->type)
+                    {
+                    case CPARAM_STRING:
+                        printf("string: \"%s\"\n", param->str_val);
+                        break;
+                    case CPARAM_INT:
+                        printf("int: \"%s\" = %d\n",
+                            param->str_val, param->int_val
+                        );
+                        break;
+                    case CPARAM_KEYWORD:
+                        printf("keyword: \"%s\" = %d [%d]\n",
+                            param->str_val,
+                            param->int_val,
+                            param->key_idx
+                        );
+                        break;
+                    case CPARAM_ACTION:
+                        printf("action: \n");
+                        break;
+                    }
+                    param = cparam_next(param);
                 }
-                param = cparam_next(param);
+            } else {
+                printf("Incorrect %s parameters: %s\n", opt, err_msg);
+                print_usage(argv[0]);
+                exit(EXIT_FAILURE);
             }
-        } else {
-            printf("Incorrect --tempmon parameters: %s\n", err_msg);
-            print_usage(argv[0]);
-            exit(EXIT_FAILURE);
         }
     }
     exit(EXIT_SUCCESS);
