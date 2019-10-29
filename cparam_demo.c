@@ -55,8 +55,8 @@ static bool action_fan(
     size_t err_len
 ) {
     struct cparam_info *scan_param = param;
-    // Skip first param.
 
+    // Skip first param (was "fan").
     scan_param = cparam_next(scan_param);
     const int temperature = scan_param->int_val;
 
@@ -79,8 +79,8 @@ static bool action_heater(
     size_t err_len
 ) {
     struct cparam_info *scan_param = param;
-    // Skip first param.
 
+    // Skip first param (was "heater").
     scan_param = cparam_next(scan_param);
     const int temperature = scan_param->int_val;
 
@@ -103,8 +103,8 @@ static bool action_range(
     size_t err_len
 ) {
     struct cparam_info *scan_param = param;
-    // Skip first param.
 
+    // Skip first param (was "range").
     scan_param = cparam_next(scan_param);
     const int min_temp = scan_param->int_val;
 
@@ -131,8 +131,8 @@ static bool action_alarm(
     size_t err_len
 ) {
     struct cparam_info *scan_param = param;
-    // Skip first param.
 
+    // Skip first param (was "alarm").
     scan_param = cparam_next(scan_param);
     const char * const alarm_level_name = scan_param->str_val;
     const enum tempmon_alarm_level alarm_level_val = scan_param->int_val;

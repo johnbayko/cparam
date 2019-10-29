@@ -217,12 +217,12 @@ pointer to a user defined data, or NULL if none was specified. The "err_msg"
 and "err_len" parameters are used for returning an error message if the
 function returns false.
 
-The action funciton is expected to be the last parameter, called when all other
+The action function is expected to be the last parameter, called when all other
 paraemter values have been parsed, so the macros CPARAM_INFO_LAST_KEYWORD,
 CPARAM_INFO_LAST_INT, CPARAM_INFO_LAST_INT_RANGE, and CPARAM_INFO_LAST_STRING
 replace the "next" parameter with "action" and "data" parameters.
 
-The CPARAM_INFO_ACTION macro inserts a dummy parameter with an action funciton,
+The CPARAM_INFO_ACTION macro inserts a dummy parameter with an action function,
 but which does not parse an argument. This can be used when some keywords have
 no further parameters, but you'd like to add an action to them, such as the
 "on" and "off" parameters in the example above:
@@ -287,7 +287,7 @@ argument to process. On failure it returns false, and sets argv_idx to the
 index of the argument that was being processed when the failure occurred, so an
 error message can be printed like:
 
-    if (cparam_process(argc, argv, &argi, &pi, err_msg, sizeof(er_msg))) {
+    if (cparam_process(argc, argv, &argi, &pi, err_msg, sizeof(err_msg))) {
         ...
     } else {
         printf("Error: %s: %s\n", argv[argi], err_msg);
@@ -334,7 +334,7 @@ parameters looks like this:
         param = cparam_next(param);
     }
 
-Within an action funciton, you know what parameters have been specified to get
+Within an action function, you know what parameters have been specified to get
 to that point, so it's generally straightforward to get the values. A
 temperature range action might look like this:
 
@@ -345,8 +345,8 @@ temperature range action might look like this:
         size_t err_len
     ) {
         struct cparam_info *scan_param = param;
-        // Skip first param (was "range").
 
+        // Skip first param (was "range").
         scan_param = cparam_next(scan_param);
         const int min_temp = scan_param->int_val;
 
@@ -379,7 +379,7 @@ help will always match what is parsed. It's annoying to try to keep parsing and
 help synchronised, and even more annoying when they are not.
 
 The function cparam_print_names() lists the parameters that will be looked for
-(with no newline). The funciton cparam_print() then prints a detailed
+(with no newline). The function cparam_print() then prints a detailed
 description of the parameter types and usage. Used together a print usage
 function might look like this:
 
